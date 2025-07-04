@@ -10,10 +10,18 @@ class ViewRequisition extends ViewRecord
 {
     protected static string $resource = RequisitionResource::class;
 
-    // This adds an "Edit" button to the top right of the view page for admins
+    // This is the correct method to define header actions for a page
     protected function getHeaderActions(): array
     {
         return [
+            // The Print button we moved from the infolist
+            Actions\Action::make('print')
+                ->label('Print / Save as PDF')
+                ->icon('heroicon-o-printer')
+                ->color('gray')
+                ->url(fn ($record) => route('requisitions.print', $record), shouldOpenInNewTab: true),
+
+            // The default Edit button, visible only to admins
             Actions\EditAction::make()->visible(auth()->user()->is_admin),
         ];
     }

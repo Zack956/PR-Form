@@ -25,6 +25,9 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Tables\Columns\BadgeColumn;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\Actions;
+use Filament\Infolists\Components\Actions\Action;
+use Illuminate\Support\Facades\Storage;
 
 class RequisitionResource extends Resource
 {
@@ -241,37 +244,47 @@ public static function canDelete(Model $record): bool
     return $record->user_id === auth()->id() && $record->status === \App\Enums\RequisitionStatus::PENDING;
 }
 
-    public static function infolist(Infolist $infolist): Infolist
+public static function infolist(Infolist $infolist): Infolist
 {
-    return $infolist->schema([
-        InfolistSection::make('Requisition Information')->schema([
-            TextEntry::make('requester.name'),
-            TextEntry::make('status')->badge(),
-            TextEntry::make('total_amount')->money('MYR'),
-            TextEntry::make('created_at')->dateTime(),
-        ])->columns(4),
+    return $infolist
+        ->schema([
+            // Main details at the top
+            InfolistSection::make('Requisition Information')
+                ->schema([
+                    TextEntry::make('requester.name'),
+                    TextEntry::make('status')->badge(),
+                    TextEntry::make('total_amount')->money('MYR'),
+                    TextEntry::make('created_at')->dateTime(),
+                ])->columns(4),
 
-        // HERE IS OUR CUSTOM COMPONENT
-        QuotationEntry::make('quotation_details')->columnSpanFull(),
+            // --- THIS IS THE NEW, INTEGRATED QUOTATION SECTION ---
+            InfolistSection::make('Quotation Details')
+                ->schema([
+                    TextEntry::make('vendor.name')->label('Vendor'),
+                    TextEntry::make('quotation_number')->label('Quotation #'),
+                    // This action will only display if a file path exists
+                    Actions::make([
+                        Action::make('download_quotation')
+                            ->label('View & Download Quotation')
+                            ->icon('heroicon-o-document-arrow-down')
+                            ->color('gray')
+                            ->url(fn ($record) => Storage::url($record->quotation_file_path), shouldOpenInNewTab: true)
+                            ->visible(fn ($record) => $record->quotation_file_path),
+                    ])->label('Attachment'),
+                ])->columns(3),
 
-        InfolistSection::make('Items')
-            ->schema([
-                // Use the RepeatableEntry component for 'has-many' relationships
-                RepeatableEntry::make('items')
-                    ->label('') // Hide the 'Items' label as the section already has one
-                    ->schema([
-                        // Use dot notation to access related model properties
-                        TextEntry::make('product.name')
-                            ->label('Product')
-                            ->weight('bold'), // Make it stand out
-                        TextEntry::make('quantity'),
-                        TextEntry::make('price')
-                            ->money('MYR')
-                            ->label('Price per Item'),
-                    ])
-                    ->columns(3), // Arrange them neatly in 3 columns
+            // The items section remains the same
+            InfolistSection::make('Items')
+                ->schema([
+                    RepeatableEntry::make('items')
+                        ->label('')
+                        ->schema([
+                            TextEntry::make('product.name')->label('Product')->weight('bold'),
+                            TextEntry::make('quantity'),
+                            TextEntry::make('price')->money('MYR')->label('Price per Item'),
+                        ])->columns(3),
                 ]),
-    ]);
+            ]);
 }
 
     public static function getPages(): array
